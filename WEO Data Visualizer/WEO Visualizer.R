@@ -13,6 +13,30 @@ library(stringr)
 library(scales)
 library(ggtext)
 library(stargazer)
+library(gt)
+
+
+WEO_Data %>% 
+  distinct(`Metric-Unit`) %>% 
+  head(1)
+
+WEO_Data %>% 
+  group_by(Country) %>% 
+  filter(`Metric-Unit` == "GDP, constant prices - Percent change" ) %>% 
+  summarise(
+    
+    mean = round (mean(Value, na.rm = T),3),
+    min = min(Value)
+  ) %>% 
+  gt( ) %>% 
+  tab_header(
+    title = md("Summary Table")
+  )
+
+
+
+
+install.packages("gt")
 # data
 
 
@@ -28,6 +52,8 @@ colnames(WEO_Data)
 # Given the momnent it will be easier to have all columns characters when pivoting.
 
 skim(WEO_Data)
+
+
 
 # Transforming data to have it in correct formant
 
@@ -69,6 +95,7 @@ Countries_Regions <- Countries_Regions %>%
 WEO_Data <- WEO_Data %>% 
   left_join(Countries_Regions, by = "ISO") %>% 
   select(-Name)
+
 
 
 Selected_Metrics <- c("Gross domestic product, constant prices - Percent change", "Gross domestic product, current prices - U.S. dollars",
@@ -156,8 +183,8 @@ ui <- fluidPage( theme = shinytheme("spacelab"),
                  navbarPage(
                    "World Economic Outlook Visualizer",
                    tabPanel("Real Economy",
-                    
-                            sidebarPanel(
+                              
+                              sidebarPanel(
                               # code the dropdown
                               selectInput(inputId = "realmetric", label = strong("Select Metric"),
                                  choices = RealMetrics),
@@ -169,10 +196,17 @@ ui <- fluidPage( theme = shinytheme("spacelab"),
                                     format = "yyyy-mm-dd",language = "en" , separator = "to", width = NULL)
                               
                    ),
+                   
                     mainPanel(
                       textOutput("title_realmetric"),
-                      plotOutput("chart_realmetric", width = "1200px", height = "600px"),
-                      tableOutput("realtable")
+                      tags$head(tags$style("#title_realmetric{
+                                 font-size: 20px;
+                                 font-style: bold;
+                                 }"
+                      )),
+                      plotOutput("chart_realmetric", width = "500px", height = "400px"),
+                      gt_output("realtable"),
+                      width = 3
                      
                    )),
                    
@@ -193,8 +227,13 @@ ui <- fluidPage( theme = shinytheme("spacelab"),
                    
                      mainPanel(
                        textOutput("title_external"),
+                       tags$head(tags$style("#title_external{
+                                 font-size: 20px;
+                                 font-style: bold;
+                                 }"
+                       )),
                        plotOutput("chart_externalmetric", width = "1200px", height = "600px"),
-                       tableOutput("externaltable")
+                       gt_output("externaltable")
                      
                    )),
                    
@@ -214,8 +253,13 @@ ui <- fluidPage( theme = shinytheme("spacelab"),
                     
                         mainPanel(
                           textOutput("title_fiscalmetric"),
+                          tags$head(tags$style("#title_fiscalmetric{
+                                 font-size: 20px;
+                                 font-style: bold;
+                                 }"
+                          )),
                           plotOutput("chart_fiscalmetric", width = "1200px", height = "600px"),
-                          tableOutput("fiscaltable")
+                          gt_output("fiscaltable")
                       
                     )),
                     
@@ -233,8 +277,13 @@ ui <- fluidPage( theme = shinytheme("spacelab"),
                       
                    mainPanel(
                      textOutput("title_sociometric"),
+                     tags$head(tags$style("#title_sociometric{
+                                 font-size: 20px;
+                                 font-style: bold;
+                                 }"
+                     )),
                      plotOutput("chart_sociometric", width = "1200px", height = "600px"),
-                     tableOutput("sociotable")
+                     gt_output("sociotable")
                    
                      )
                    ))
@@ -371,21 +420,57 @@ server <- function(input, output){
   })
   
   
-  output$realtable <- renderTable({
+  output$realtable <- render_gt({
     
     
-    # Create the stargazer table
- 
-    rm() %>% 
-      select(Country, Value) %>% 
-      pivot_wider(
-        names_from = Country,
-        values_from = Value
-      ) %>% 
-      unnest() %>%
-      as.data.frame() %>% 
-      stargazer(., title = "Summary Table", type="text", column.sep.width = "10pt")
+    
+    # Create the table
+    
+    
+    if(ru() %in% percent_metrics  ) {
       
+      
+      # Create the table
+      
+      rm() %>%
+        
+        select(Country, Value) %>%
+        group_by(Country) %>% 
+        summarise(
+          
+          Mean = round (mean(Value, na.rm = T),2),
+          Min = round(min(Value,na.rm = T), 2),
+          Max = round(max(Value, na.rm = T),2)
+        ) %>% 
+        gt( ) %>% 
+        tab_header(
+          title = md("Summary Table")
+        )
+      
+      
+    }
+    
+    else {
+      
+      rm() %>%
+        
+        select(Country, Value) %>%
+        group_by(Country) %>% 
+        summarise(
+          
+          Mean = round (mean(Value, na.rm = T), 3),
+          Min =  min(Value,na.rm = T),
+          Max =  max(Value, na.rm = T)
+        ) %>% 
+        gt( ) %>% 
+        tab_header(
+          title = md("Summary Table")
+        )
+      
+      
+      
+      
+    }
     
     
   })
@@ -518,21 +603,56 @@ server <- function(input, output){
   })
   
   
-  output$externaltable <- renderTable({
+  output$externaltable <- render_gt({
     
     
-    # Create the stargazer table
+    # Create the table
     
-    ret() %>% 
-      select(Country, Value) %>% 
-      pivot_wider(
-        names_from = Country,
-        values_from = Value
-      ) %>% 
-      unnest() %>%
-      as.data.frame() %>% 
-      stargazer(., title = "Summary Table", type="text", column.sep.width = "10pt")
     
+    if(ref() %in% percent_metrics  ) {
+      
+      
+      # Create the table
+      
+      ret() %>%
+        
+        select(Country, Value) %>%
+        group_by(Country) %>% 
+        summarise(
+          
+          Mean = round (mean(Value, na.rm = T),2),
+          Min = round(min(Value,na.rm = T), 2),
+          Max = round(max(Value, na.rm = T),2)
+        ) %>% 
+        gt( ) %>% 
+        tab_header(
+          title = md("Summary Table")
+        )
+      
+      
+    }
+    
+    else {
+      
+      ret() %>%
+        
+        select(Country, Value) %>%
+        group_by(Country) %>% 
+        summarise(
+          
+          Mean = round( mean(Value, na.rm = T), 3) ,
+          Min =  min(Value,na.rm = T),
+          Max =  max(Value, na.rm = T)
+        ) %>% 
+        gt( ) %>% 
+        tab_header(
+          title = md("Summary Table")
+        )
+      
+      
+      
+      
+    }
     
     
   })
@@ -666,20 +786,56 @@ server <- function(input, output){
   })
   
   
-  output$fiscaltable <- renderTable({
+  output$fiscaltable <- render_gt({
     
     
-    # Create the stargazer table
+    # Create the table
     
-    rft() %>% 
-      select(Country, Value) %>% 
-      pivot_wider(
-        names_from = Country,
-        values_from = Value
-      ) %>% 
-      unnest() %>%
-      as.data.frame() %>% 
-      stargazer(., title = "Summary Table", type="text", column.sep.width = "10pt")
+    
+    if(rff() %in% percent_metrics  ) {
+      
+      
+      # Create the table
+      
+      rft() %>%
+        
+        select(Country, Value) %>%
+        group_by(Country) %>% 
+        summarise(
+          
+          Mean = round (mean(Value, na.rm = T),2),
+          Min = round(min(Value,na.rm = T), 2),
+          Max = round(max(Value, na.rm = T),2)
+        ) %>% 
+        gt( ) %>% 
+        tab_header(
+          title = md("Summary Table")
+        )
+      
+      
+    }
+    
+    else {
+      
+      rft() %>%
+        
+        select(Country, Value) %>%
+        group_by(Country) %>% 
+        summarise(
+          
+          Mean =round(  mean(Value, na.rm = T), 3)  ,
+          Min =  min(Value,na.rm = T),
+          Max =  max(Value, na.rm = T)
+        ) %>% 
+        gt( ) %>% 
+        tab_header(
+          title = md("Summary Table")
+        )
+      
+      
+      
+      
+    }
     
     
     
@@ -810,22 +966,53 @@ server <- function(input, output){
   )
   
   
-  output$sociotable <- renderTable({
+  output$sociotable <- render_gt({
     
     
-    # Create the stargazer table
+    if(rsef() %in% percent_metrics  ) {
+      
+      
+      # Create the table
+      
+      rset() %>%
+        
+        select(Country, Value) %>%
+        group_by(Country) %>% 
+        summarise(
+          
+          Mean = round (mean(Value, na.rm = T),2),
+          Min = round(min(Value,na.rm = T), 2),
+          Max = round(max(Value, na.rm = T),2)
+          ) %>% 
+            gt( ) %>% 
+            tab_header(
+              title = md("Summary Table")
+            )
+      
+      
+    }
     
-    rset() %>% 
-      select(Country, Value) %>% 
-      pivot_wider(
-        names_from = Country,
-        values_from = Value
-      ) %>% 
-      unnest() %>%
-      as.data.frame() %>% 
-      stargazer(., title = "Summary Table", type="text", column.sep.width = "10pt")
+    else {
+      
+      rset() %>%
+        
+        select(Country, Value) %>%
+        group_by(Country) %>% 
+        summarise(
+          
+          Mean = round( mean(Value, na.rm = T), 3),
+          Min =  min(Value,na.rm = T),
+          Max =  max(Value, na.rm = T)
+          ) %>% 
+            gt( ) %>% 
+            tab_header(
+              title = md("Summary Table")
+            )
+          
+      
+      
     
-    
+    } 
     
   })
     
@@ -835,3 +1022,4 @@ server <- function(input, output){
 
 
 shinyApp(ui = ui, server = server)    
+
